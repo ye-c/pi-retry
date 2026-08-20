@@ -87,11 +87,11 @@ Agent.prototype.subscribe = function (this: Agent, ...args: any[]) {
 // When _continueInProgress is false (pi-retry is not active), the
 // built-in retry works normally as a fallback.
 const _origPrepareRetry = (AgentSession.prototype as any)._prepareRetry;
-(AgentSession.prototype as any)._prepareRetry = function(this: any, message: any) {
-  if (
-    _continueInProgress &&
-    _continueInputGeneration === _inputGeneration
-  ) {
+(AgentSession.prototype as any)._prepareRetry = function (
+  this: any,
+  message: any,
+) {
+  if (_continueInProgress && _continueInputGeneration === _inputGeneration) {
     return Promise.resolve(false);
   }
   return _origPrepareRetry.call(this, message);
@@ -145,7 +145,7 @@ function interruptibleSleep(
   inputGeneration: number,
 ): Promise<boolean> {
   if (ms <= 0) return Promise.resolve(false);
-  return new Promise(resolve => {
+  return new Promise((resolve) => {
     const checkInterval = 100;
     let elapsed = 0;
     const timer = setInterval(() => {
@@ -173,7 +173,7 @@ function removeErrorFromAgentState(): void {
   if (!_agent) return;
   const messages = _agent.state.messages;
   const lastMsg = messages[messages.length - 1];
-  if (lastMsg?.role === 'assistant' && lastMsg.stopReason === 'error') {
+  if (lastMsg?.role === "assistant" && lastMsg.stopReason === "error") {
     _agent.state.messages = messages.slice(0, -1);
   }
 }
@@ -191,7 +191,6 @@ function getHiddenTurnKind(): HiddenTurnKind | null {
 }
 
 export default function (pi: ExtensionAPI) {
-
   pi.on("input", () => {
     _inputGeneration++;
     // The generation change cancels any older loop; the new user request gets
@@ -265,13 +264,14 @@ export default function (pi: ExtensionAPI) {
 
     // If the retry loop is already driving, don't interfere — it will
     // see the new error on its next loop iteration.
-    if (
-      _continueInProgress &&
-      _continueInputGeneration === _inputGeneration
-    ) return;
+    if (_continueInProgress && _continueInputGeneration === _inputGeneration)
+      return;
 
     // Check for max_tokens stop — auto-continue with a hidden TUI message
-    if (hasMaxTokensStop(lastAssistant) && !stateContinuation.getIsContinuing()) {
+    if (
+      hasMaxTokensStop(lastAssistant) &&
+      !stateContinuation.getIsContinuing()
+    ) {
       stateContinuation.startContinuation();
       ctx.ui.notify(
         `Max tokens reached — auto-continuing (continuation ${stateContinuation.getCount()})...`,
@@ -336,11 +336,10 @@ export default function (pi: ExtensionAPI) {
     }
   });
 
-
-
   // Unified /retry command with subcommands
   pi.registerCommand("retry", {
-    description: "Unified retry controls: /retry (manual trigger), /retry status (diagnostics), /retry reset (clear state)",
+    description:
+      "Unified retry controls: /retry (manual trigger), /retry status (diagnostics), /retry reset (clear state)",
     handler: async (args, ctx) => {
       const subcommand = args[0]?.toLowerCase();
 
@@ -489,8 +488,11 @@ export default function (pi: ExtensionAPI) {
       }
 
       // No error detected - show status instead
-      ctx.ui.notify("No retryable error detected. Use '/retry status' for diagnostics.", "warning");
-    }
+      ctx.ui.notify(
+        "No retryable error detected. Use '/retry status' for diagnostics.",
+        "warning",
+      );
+    },
   });
 
   // Initialize
@@ -514,7 +516,7 @@ export default function (pi: ExtensionAPI) {
     _terminalInputUnsubscribe = null;
 
     if (ctx.mode === "tui") {
-      _terminalInputUnsubscribe = ctx.ui.onTerminalInput(data => {
+      _terminalInputUnsubscribe = ctx.ui.onTerminalInput((data) => {
         if (
           !matchesKey(data, "escape") ||
           !_continueInProgress ||
@@ -581,7 +583,8 @@ export default function (pi: ExtensionAPI) {
         _userAborted ||
         _sessionGeneration !== myGeneration ||
         _inputGeneration !== myInputGeneration
-      ) return;
+      )
+        return;
 
       let attempt = 0;
       let hiddenTurnKind: HiddenTurnKind | null = initialKind;
@@ -592,7 +595,8 @@ export default function (pi: ExtensionAPI) {
           _userAborted ||
           _sessionGeneration !== myGeneration ||
           _inputGeneration !== myInputGeneration
-        ) return;
+        )
+          return;
 
         // Preserve the trigger kind before removing a trailing error from
         // live state. Length-stopped output stays in context so the model can
@@ -634,12 +638,14 @@ export default function (pi: ExtensionAPI) {
         try {
           pi.sendMessage(
             {
-              customType: hiddenTurnKind === "retry"
-                ? RETRY_TRIGGER_CUSTOM_TYPE
-                : CONTINUATION_CUSTOM_TYPE,
-              content: hiddenTurnKind === "retry"
-                ? "Retry the previous request."
-                : "Continue exactly where you left off without repeating content.",
+              customType:
+                hiddenTurnKind === "retry"
+                  ? RETRY_TRIGGER_CUSTOM_TYPE
+                  : CONTINUATION_CUSTOM_TYPE,
+              content:
+                hiddenTurnKind === "retry"
+                  ? "Retry the previous request."
+                  : "Continue exactly where you left off without repeating content.",
               display: false,
               details: undefined,
             },
@@ -661,7 +667,8 @@ export default function (pi: ExtensionAPI) {
           _userAborted ||
           _sessionGeneration !== myGeneration ||
           _inputGeneration !== myInputGeneration
-        ) return;
+        )
+          return;
 
         // The hidden AgentSession turn completed. Both errors and output
         // length stops need another turn; all other terminal states are done.
@@ -674,9 +681,12 @@ export default function (pi: ExtensionAPI) {
     } finally {
       // Release the mutex only if this loop still owns it.
       if (_continueGeneration === myGeneration) {
-        pi.events.emit(didRetryComplete ? RETRY_COMPLETED_EVENT : RETRY_CANCELLED_EVENT, {
-          retryId: retryLifecycleId,
-        });
+        pi.events.emit(
+          didRetryComplete ? RETRY_COMPLETED_EVENT : RETRY_CANCELLED_EVENT,
+          {
+            retryId: retryLifecycleId,
+          },
+        );
         _continueInProgress = false;
         _continueGeneration = null;
         _continueInputGeneration = null;
@@ -688,7 +698,9 @@ export default function (pi: ExtensionAPI) {
   // ctx.ui.notify is only available inside event handlers, not inside
   // triggerInvisibleContinue. We capture a fresh reference from the
   // most recent handler invocation so it's always current.
-  let _notifyFn: ((message: string, level: "info" | "warning" | "error") => void) | null = null;
+  let _notifyFn:
+    | ((message: string, level: "info" | "warning" | "error") => void)
+    | null = null;
 
   // Refresh on every handler that carries a ctx — stale references
   // break after session switches (the old ctx becomes invalid).

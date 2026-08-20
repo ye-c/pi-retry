@@ -20,7 +20,7 @@ _400/413, connection errors, credit errors, stream exhaustion — retry them all
 This extension automatically detects and retries **all** errors by default, with only a tiny blacklist of known permanent failures (invalid API key, missing model, etc.).
 
 | Error Type | Retry Behavior | Use Case |
-|------------|----------------|----------|
+| ------------ | ---------------- | ---------- |
 | **Any retryable error** (catch-all) | **Up to 10 attempts** with capped backoff | Everything else — provider hiccups, stream exhaustion, credit issues, unknown errors |
 | HTTP 400/413 | **Up to 10 attempts** with capped backoff, NO compaction | Transient context overflow that might resolve |
 | Credit / payment errors | **Up to 10 attempts** with capped backoff | "Not Enough Credits", insufficient balance, 402 — top up and the retry loop auto-resumes |
@@ -47,6 +47,7 @@ This extension provides **automatic** retry with sensible exponential backoff (2
 **Philosophy: retry EVERYTHING by default.** The only things we skip are a tiny blacklist of known permanent failures (invalid API key, model not found, unsupported model, etc.).
 
 **Features:**
+
 - **Catch-all retry** — Any `stopReason: "error"` is retried, regardless of error message
 - Automatic detection of 400/413, connection, credit, and stream exhaustion errors
 - **Auto-continuation** when the model hits its max output tokens (`stopReason: "length"`) — indefinite, no cap, hidden from the TUI
@@ -111,7 +112,7 @@ Once loaded, the extension **automatically** detects and retries all errors.
 ### Manual Controls
 
 | Command | Description |
-|---------|-------------|
+| --------- | ------------- |
 | `/retry` | Manually trigger immediate retry (auto-detects: 400/413, credit, connection, max_tokens, or any other error) |
 | `/retry status` | Show current retry diagnostics for all error types + continuation state |
 | `/retry reset` | Reset all retry counters and state |
@@ -149,19 +150,24 @@ The pi's built-in `transform-messages` already strips aborted/errored assistant 
 ## Detected Error Patterns
 
 ### Catch-All (Any Error)
+
 - **Any** assistant message with `stopReason === "error"` is retried by default
 - Unknown provider errors, stream errors, unexpected failures — all handled automatically
 - Only skipped if it matches a known permanent failure (invalid API key, missing model, etc.)
 
 ### Non-Retryable (Permanent Failures)
+
 These are explicitly **not** retried:
+
 - Invalid API key / invalid authentication
 - API key not found / missing / revoked
 - Model not found / unknown model / no such model / model does not exist
 - Unsupported model
 
 ### Non-Retryable (Quota / Session Limit / Budget)
+
 Exhausted quotas, session limits, and budgets are auto-detected and stop the retry loop (with an explanatory notification), because retrying is pointless until you act or the reset window passes:
+
 - **Usage / session limits with reset windows** — "You've hit your limit · resets …" and "5-hour limit reached" (Claude Code), "You've hit your usage limit" / "You've exceeded your usage limit" (Codex), "You have hit your ChatGPT usage limit (plus plan)" (ChatGPT subscription caps via the Codex backend, also `usage_limit_reached`)
 - **Plan / billing quotas** — OpenAI `insufficient_quota`, "You exceeded your current quota, please check your plan and billing details" (OpenAI, Gemini — reached only after pi's built-in 429 retry gives up)
 - **Google subscription caps** — "You have exhausted your capacity on this model. Your quota will reset after …" (Gemini Code Assist), "You have reached the quota limit for …" / "You can resume using this model at …" (Antigravity)
@@ -172,17 +178,20 @@ Exhausted quotas, session limits, and budgets are auto-detected and stop the ret
 Deliberate distinction: plain pay-as-you-go **balance** errors stay retryable — DeepSeek 402 "Insufficient Balance", OpenRouter 402 "Insufficient credits", Kimi "exceeded your current token quota". A mid-session top-up lets the retry loop auto-resume, whereas session limits and budgets do not self-resolve for hours.
 
 ### Max Tokens (stopReason: "length")
+
 - The model hit its `max_tokens` / output token limit
 - The model's response was truncated mid-generation
 - Auto-continuation sends a provider-valid custom message hidden from the TUI
 
 ### 400/413 Errors
+
 - HTTP 400 Bad Request
 - HTTP 413 Payload Too Large
 - "bad request" messages
 - "payload too large" messages
 
 ### Credit / Payment Errors
+
 - "Not Enough Credits"
 - "insufficient credits"
 - "insufficient balance"
@@ -191,6 +200,7 @@ Deliberate distinction: plain pay-as-you-go **balance** errors stay retryable �
 - HTTP 402 status code
 
 ### Connection Errors
+
 - Connection / network errors
 - Fetch failures
 - Socket hang up / socket errors
@@ -259,6 +269,7 @@ npm run lint:dead     # Dead code detection with knip
 ### Extension not working?
 
 Check that it's loaded in the startup header:
+
 ```
 Loaded extensions: retry.ts
 ```
@@ -266,6 +277,7 @@ Loaded extensions: retry.ts
 ### Retry not triggering?
 
 Use the status command to diagnose:
+
 ```
 /retry status
 ```
@@ -300,7 +312,7 @@ pi install npm:@georgebashi/pi-retry
 
 ## Limitations
 
-- Extensions cannot override pi's internal `isRetryableError()` check — they run *after* pi decides not to auto-retry
+- Extensions cannot override pi's internal `isRetryableError()` check — they run _after_ pi decides not to auto-retry
 - Error messages remain in the session history (but are invisible to the LLM)
 - May hit the same error repeatedly if the issue is persistent (use `Ctrl+C` to abort)
 - **Warning**: Retrying 400/413 without reducing context may fail repeatedly if the payload is genuinely too large
