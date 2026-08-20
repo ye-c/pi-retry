@@ -207,6 +207,16 @@ export const QUOTA_EXHAUSTED_PATTERNS = [
   /budget\s*(has\s*been\s*)?(exceeded|exhausted|limit)/i,
   /max(imum)?\s*budget\s*(exceeded|reached|limit)/i,
   /spending\s*limit/i,
+  // Gateway/proxy budget variants that the generic rules above miss because
+  // the word order or separator differs. Evidence: a LiteLLM-style 400
+  // "ExceededBudget: User=… over budget. Spend=…, Budget=…" with
+  // error.type "budget_exceeded" (budget is a camelCase **suffix**, and the
+  // underscore in budget_exceeded is NOT matched by the whitespace-only \s*
+  // in the generic rule). All are hard caps — retrying an over-budget
+  // account is pointless until top-up, so they must stop the loop.
+  /exceeded\s*budget/i, // "ExceededBudget:" (budget as camelCase suffix)
+  /over\s*budget/i,     // "… over budget. Spend=…, Budget=…"
+  /budget[\s_]exceeded/i, // "… type=budget_exceeded" (underscore variant)
   // Google subscription caps (Gemini Code Assist, Antigravity)
   /exhausted your capacity/i, // "You have exhausted your capacity on this model."
   /quota will reset after/i, // "Your quota will reset after 8h44m7s."

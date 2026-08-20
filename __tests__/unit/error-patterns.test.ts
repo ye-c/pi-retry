@@ -486,6 +486,25 @@ describe('hasQuotaExhaustedError', () => {
     expect(hasQuotaExhaustedError(createAssistantError('out of budget'))).toBe(true);
   });
 
+  it('detects LiteLLM gateway ExceededBudget (budget word as camelCase suffix / over budget / budget_exceeded type)', () => {
+    // Real shape: a 400 whose type is budget_exceeded and whose body has the
+    // budget as a camelCase suffix and "over budget". None matched the older
+    // generic budget rules → it must now hard-stop, not loop forever.
+    const raw = 'ExceededBudget: User=4693021f-5232-490a-992e-a7343a94c9f6 over budget.\n Spend=50.15050716199994, Budget=50.0", "type":"budget_exceeded"';
+    const msg = createAssistantError(raw);
+    expect(hasQuotaExhaustedError(msg)).toBe(true);
+    expect(hasRetryableError(msg)).toBe(false);
+    expect(isNonRetryableError(msg)).toBe(true);
+    expect(getErrorCategory(raw)).toBe('quota');
+  });
+
+  it('detects bare over-budget and budget_exceeded-type variants', () => {
+    expect(hasQuotaExhaustedError(createAssistantError('User=abc over budget.'))).toBe(true);
+    expect(hasQuotaExhaustedError(createAssistantError('{"type":"budget_exceeded"}'))).toBe(true);
+    // underscore variant does not collide with the whitespace-only generic rule
+    expect(hasQuotaExhaustedError(createAssistantError('budget_exceeded'))).toBe(true);
+  });
+
   it('detects suspended accounts (Kimi exceeded_current_quota_error)', () => {
     expect(hasQuotaExhaustedError(createAssistantError('Your account org-123<ak-xyz> is suspended, please check your plan and billing details'))).toBe(true);
   });
