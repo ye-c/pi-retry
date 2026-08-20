@@ -57,7 +57,8 @@ const RETRY_CANCELLED_EVENT = "pi-retry:cancelled";
  *   - triggerInvisibleContinue() owns the retry loop: it waits for idle,
  *     removes error assistant messages from live state, queues a hidden
  *     AgentSession turn, and checks the result. On error it sleeps outside
- *     processEvents and retries. On success or user abort the loop exits.
+ *     processEvents and retries, up to MAX_RETRIES (10) attempts. On success,
+ *     user abort, or hitting the retry cap the loop exits.
  */
 
 // Capture the live Agent instance when AgentSession subscribes to it.
@@ -110,6 +111,13 @@ const stateContinuation = new ContinuationState();
 // Prevents triggerInvisibleContinue() from starting a hidden retry turn after
 // the user explicitly cancelled, even if a tool/provider reports an error.
 let _userAborted = false;
+
+// Global safety net: stop the error-retry loop after this many attempts.
+// The retry loop is otherwise infinite, which is correct while budget/quota
+// errors are unrecognised but catastrophic if a provider error slips through
+// and never resolves. After MAX_RETRIES failed retries the loop stops and
+// leaves the error visible for /retry status.
+const MAX_RETRIES = 10;
 
 // Mutex: only one triggerInvisibleContinue may be in-flight at a time.
 // Without this, concurrent agent_end events (or a manual /retry during an
@@ -182,10 +190,6 @@ function getHiddenTurnKind(): HiddenTurnKind | null {
   return null;
 }
 
-function lastMessageIsRetryableError(): boolean {
-  return getHiddenTurnKind() === "retry";
-}
-
 export default function (pi: ExtensionAPI) {
 
   pi.on("input", () => {
@@ -240,7 +244,7 @@ export default function (pi: ExtensionAPI) {
   // Instead, the handler detects errors and kicks off
   // triggerInvisibleContinue(), which owns the retry loop with backoff
   // sleeps that happen AFTER processEvents returns (outside the agent run).
-  pi.on("agent_end", async (event, ctx) => {
+  pi.on("agent_end", async (_event, ctx) => {
     // Prefer Pi's run signal over provider-specific stop-reason mapping. An
     // Escape during a Fabric/core tool may settle as an error-shaped result,
     // but it is still a user cancellation and must never schedule a retry.
@@ -298,19 +302,14 @@ export default function (pi: ExtensionAPI) {
 
       // Pick the right state tracker for diagnostics
       let state: RetryState;
-      let label: string;
       if (category === "400-413") {
         state = state400;
-        label = "400/413";
       } else if (category === "credit") {
         state = stateCredit;
-        label = "Credit";
       } else if (category === "connection") {
         state = stateConnection;
-        label = "Connection";
       } else {
         state = stateOther;
-        label = category === "builtin" ? "Server" : "Other";
       }
 
       if (state.getIsRetrying()) return;
@@ -387,7 +386,7 @@ export default function (pi: ExtensionAPI) {
         status += `  Base delay: 2000ms\n`;
         status += `  Max delay: 60000ms\n`;
         status += `  Backoff multiplier: 2\n`;
-        status += `  Retry loop: infinite (triggerInvisibleContinue loops until success or abort)\n\n`;
+        status += `  Retry loop: error retries capped at ${MAX_RETRIES} attempts (continuation for max_tokens is uncapped)\n\n`;
 
         // Last assistant info
         if (lastAssistant && isAssistantMessage(lastAssistant)) {
@@ -602,6 +601,17 @@ export default function (pi: ExtensionAPI) {
           didRetryComplete = true;
           return;
         }
+
+        // Global safety net: after MAX_RETRIES failed error-retry attempts, stop
+        // and surface the error instead of looping forever. This catches errors
+        // that slip past the non-retryable/overflow blacklists (e.g. an unknown
+        // provider error that never resolves). Continuations (max_tokens) are
+        // not counted — they produce valid output and terminate naturally.
+        if (hiddenTurnKind === "retry" && attempt >= MAX_RETRIES) {
+          _notifyRetriesExhausted(MAX_RETRIES);
+          return;
+        }
+
         removeErrorFromAgentState();
 
         attempt++;
@@ -696,6 +706,15 @@ export default function (pi: ExtensionAPI) {
     if (_notifyFn) {
       const duration = formatDuration(delayMs);
       _notifyFn(`Retry attempt ${attempt} (backoff ${duration})...`, "info");
+    }
+  }
+
+  function _notifyRetriesExhausted(maxRetries: number) {
+    if (_notifyFn) {
+      _notifyFn(
+        `Retry limit reached (${maxRetries} attempts, none succeeded) — stopping. Check /retry status, or hit Escape / use \`/retry\` to try again manually.`,
+        "error",
+      );
     }
   }
 }

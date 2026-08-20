@@ -21,11 +21,11 @@ This extension automatically detects and retries **all** errors by default, with
 
 | Error Type | Retry Behavior | Use Case |
 |------------|----------------|----------|
-| **Any retryable error** (catch-all) | **Indefinite** with capped backoff | Everything else — provider hiccups, stream exhaustion, credit issues, unknown errors |
-| HTTP 400/413 | **Indefinite** with capped backoff, NO compaction | Transient context overflow that might resolve |
-| Credit / payment errors | **Indefinite** with capped backoff | "Not Enough Credits", insufficient balance, 402 — top up and the retry loop auto-resumes |
-| **Quota / session-limit / budget exhaustion** | **Not retried** — notify + stop | "You've hit your limit", `insufficient_quota`, "out of budget", suspended accounts |
-| Connection errors | **Indefinite** with capped backoff | Network hiccups, connection drops, socket errors, stream exhaustion |
+| **Any retryable error** (catch-all) | **Up to 10 attempts** with capped backoff | Everything else — provider hiccups, stream exhaustion, credit issues, unknown errors |
+| HTTP 400/413 | **Up to 10 attempts** with capped backoff, NO compaction | Transient context overflow that might resolve |
+| Credit / payment errors | **Up to 10 attempts** with capped backoff | "Not Enough Credits", insufficient balance, 402 — top up and the retry loop auto-resumes |
+| **Quota / session-limit / budget exhaustion** | **Not retried** — notify + stop | "You've hit your limit", `insufficient_quota`, "out of budget", `ExceededBudget` / `budget_exceeded`, suspended accounts |
+| Connection errors | **Up to 10 attempts** with capped backoff | Network hiccups, connection drops, socket errors, stream exhaustion |
 | Max tokens (`stopReason: "length"`) | **Auto-continue** indefinitely with hidden continuation turns | Model hits output token limit mid-generation |
 
 ---
@@ -42,7 +42,7 @@ By default, pi has built-in retry for some errors (rate limits, 5xx, overloaded)
 
 ## The Solution
 
-This extension provides **automatic** infinite retry with sensible exponential backoff (2s → 4s → 8s → ... → 60s max).
+This extension provides **automatic** retry with sensible exponential backoff (2s → 4s → 8s → … → 60s max), capped at **10 attempts** per failure as a safety net. A hard-stop blacklist (quota/budget exhaustion, oversize context, etc.) stops retrying immediately instead.
 
 **Philosophy: retry EVERYTHING by default.** The only things we skip are a tiny blacklist of known permanent failures (invalid API key, model not found, unsupported model, etc.).
 
