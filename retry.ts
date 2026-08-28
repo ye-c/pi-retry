@@ -371,7 +371,9 @@ export default function (pi: ExtensionAPI) {
     description:
       "Unified retry controls: /retry (manual trigger), /retry status (diagnostics), /retry reset (clear state)",
     handler: async (args, ctx) => {
-      const subcommand = args[0]?.toLowerCase();
+      // pi passes `args` as a STRING (e.g. "status" or "reset", "" for
+      // bare /retry), not an array. Take the first whitespace-delimited token.
+      const subcommand = args.trim().split(/\s+/)[0]?.toLowerCase();
 
       // /retry status - Show diagnostics
       if (subcommand === "status") {
