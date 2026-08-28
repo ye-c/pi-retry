@@ -351,5 +351,44 @@ export function hasMaxTokensStop(message: AgentMessage): boolean {
  return message.stopReason === "length";
 }
 
+// ── Empty / think-only stop (not an error — continuation) ──
+
+// Collect non-null content blocks from an assistant message. Mirrors how
+// pi-agent-core shapes content (array of typed blocks); older/nested shapes
+// fall back to an empty list, so they're not mistaken for a usable turn.
+function getContentBlocks(message: AgentMessage): unknown[] {
+ const content = (message as { content?: unknown }).content;
+ return Array.isArray(content) ? content : [];
+}
+
+/**
+ * Returns true for an assistant message whose turn ended without any
+ * USABLE output: stopReason "stop" with only empty content — zero blocks
+ * (Anthropic's documented empty responses with end_turn) or only reasoning
+ * blocks (a reasoning model spent its output budget on thinking and never
+ * produced text/tool calls).
+ *
+ * "Usable" = a non-empty text block or a toolCall block. Thinking, images,
+ * and blank text do not count. This deliberately does NOT flag a
+ * legitimately text-only final answer.
+ */
+export function hasEmptyStop(message: AgentMessage): boolean {
+ if (!isAssistantMessage(message)) return false;
+ if (message.stopReason !== "stop") return false;
+ const hasUsable = getContentBlocks(message).some((block) => {
+  if (!block || typeof block !== "object") return false;
+  const candidate = block as { type?: unknown; text?: unknown };
+  if (candidate.type === "toolCall") return true;
+  if (candidate.type === "text") {
+   return (
+    typeof candidate.text === "string" &&
+    candidate.text.trim().length > 0
+   );
+  }
+  return false;
+ });
+ return !hasUsable;
+}
+
 // Re-export getLastAssistantMessage for convenience
 export { getLastAssistantMessage } from "./retry-logic.js";

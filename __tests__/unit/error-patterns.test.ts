@@ -13,6 +13,7 @@ import {
   isSilencedError,
   hasQuotaExhaustedError,
   hasMaxTokensStop,
+  hasEmptyStop,
   isContextOverflowError,
   getErrorCategory,
   CONNECTION_ERROR_PATTERNS,
@@ -479,6 +480,64 @@ describe("CONNECTION_ERROR_PATTERNS", () => {
       expect(pattern).toBeInstanceOf(RegExp);
       expect(() => "test".match(pattern)).not.toThrow();
     });
+  });
+});
+
+describe("hasEmptyStop", () => {
+  const assistant = (content: unknown[], stopReason = "stop") =>
+    ({ role: "assistant", stopReason, content }) as unknown as AgentMessage;
+
+  it('returns true for zero content blocks (empty end_turn)', () => {
+    expect(hasEmptyStop(assistant([]))).toBe(true);
+  });
+
+  it("returns true for think-only / reasoning blocks with no text or tool calls", () => {
+    // A reasoning model that spent its output budget on thinking and never
+    // produced usable text/tool calls. Not flagged with a "length" stop
+    // (that's max_tokens) but with "stop".
+    expect(
+      hasEmptyStop(assistant([{ type: "thinking", thinking: "..." }])),
+    ).toBe(true);
+  });
+
+  it("returns false when there is a non-empty text block", () => {
+    expect(
+      hasEmptyStop(assistant([{ type: "text", text: "hi" }])),
+    ).toBe(false);
+  });
+
+  it("returns false for a blank/whitespace-only text block", () => {
+    expect(
+      hasEmptyStop(assistant([{ type: "text", text: "   " }])),
+    ).toBe(true);
+  });
+
+  it("returns false when there is a toolCall block", () => {
+    expect(
+      hasEmptyStop(
+        assistant([{ type: "toolCall", name: "bash", args: "..." }]),
+      ),
+    ).toBe(false);
+  });
+
+  it("returns false when stopReason is not stop", () => {
+    expect(hasEmptyStop(assistant([], "length"))).toBe(false);
+    expect(hasEmptyStop(assistant([], "error"))).toBe(false);
+    expect(hasEmptyStop(assistant([{ type: "text", text: "hi" }], "length"))).toBe(
+      false,
+    );
+  });
+
+  it("returns false for user messages", () => {
+    const msg = {
+      role: "user",
+      content: [{ type: "text", text: "test" }],
+    } as unknown as AgentMessage;
+    expect(hasEmptyStop(msg)).toBe(false);
+  });
+
+  it("returns false for non-array content (defensive shape)", () => {
+    expect(hasEmptyStop(assistant("plain string" as any))).toBe(true);
   });
 });
 
