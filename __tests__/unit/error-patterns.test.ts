@@ -487,7 +487,7 @@ describe("hasEmptyStop", () => {
   const assistant = (content: unknown[], stopReason = "stop") =>
     ({ role: "assistant", stopReason, content }) as unknown as AgentMessage;
 
-  it('returns true for zero content blocks (empty end_turn)', () => {
+  it("returns true for zero content blocks (empty end_turn)", () => {
     expect(hasEmptyStop(assistant([]))).toBe(true);
   });
 
@@ -501,15 +501,11 @@ describe("hasEmptyStop", () => {
   });
 
   it("returns false when there is a non-empty text block", () => {
-    expect(
-      hasEmptyStop(assistant([{ type: "text", text: "hi" }])),
-    ).toBe(false);
+    expect(hasEmptyStop(assistant([{ type: "text", text: "hi" }]))).toBe(false);
   });
 
   it("returns false for a blank/whitespace-only text block", () => {
-    expect(
-      hasEmptyStop(assistant([{ type: "text", text: "   " }])),
-    ).toBe(true);
+    expect(hasEmptyStop(assistant([{ type: "text", text: "   " }]))).toBe(true);
   });
 
   it("returns false when there is a toolCall block", () => {
@@ -523,9 +519,9 @@ describe("hasEmptyStop", () => {
   it("returns false when stopReason is not stop", () => {
     expect(hasEmptyStop(assistant([], "length"))).toBe(false);
     expect(hasEmptyStop(assistant([], "error"))).toBe(false);
-    expect(hasEmptyStop(assistant([{ type: "text", text: "hi" }], "length"))).toBe(
-      false,
-    );
+    expect(
+      hasEmptyStop(assistant([{ type: "text", text: "hi" }], "length")),
+    ).toBe(false);
   });
 
   it("returns false for user messages", () => {

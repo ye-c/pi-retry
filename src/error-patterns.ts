@@ -381,8 +381,7 @@ export function hasEmptyStop(message: AgentMessage): boolean {
   if (candidate.type === "toolCall") return true;
   if (candidate.type === "text") {
    return (
-    typeof candidate.text === "string" &&
-    candidate.text.trim().length > 0
+    typeof candidate.text === "string" && candidate.text.trim().length > 0
    );
   }
   return false;
