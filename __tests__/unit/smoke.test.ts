@@ -14,7 +14,10 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import type { ExtensionAPI, ExtensionCommandContext } from "@earendil-works/pi-coding-agent";
+import type {
+  ExtensionAPI,
+  ExtensionCommandContext,
+} from "@earendil-works/pi-coding-agent";
 
 beforeEach(() => {
   vi.useFakeTimers();
@@ -30,14 +33,20 @@ let activeMockAgent: { prompt(input: unknown[]): Promise<void> } | undefined;
 
 function createMockAPI() {
   const handlers: Record<string, Function[]> = {};
-  const commands: Record<string, { handler: (args: string[], ctx: any) => Promise<void> }> = {};
+  const commands: Record<
+    string,
+    { handler: (args: string[], ctx: any) => Promise<void> }
+  > = {};
 
   const api = {
-      events: { emit: vi.fn(), on: vi.fn(() => () => {}) },
+    events: { emit: vi.fn(), on: vi.fn(() => () => {}) },
     on(event: string, handler: Function) {
       (handlers[event] ??= []).push(handler);
     },
-    registerCommand(name: string, opts: { handler: (args: string[], ctx: any) => Promise<void> }) {
+    registerCommand(
+      name: string,
+      opts: { handler: (args: string[], ctx: any) => Promise<void> },
+    ) {
       commands[name] = opts;
     },
     sendMessage: vi.fn(() => {
@@ -91,7 +100,10 @@ async function setup() {
   };
 }
 
-async function createAgentWithMessages(messages: any[], promptFn?: () => Promise<void>) {
+async function createAgentWithMessages(
+  messages: any[],
+  promptFn?: () => Promise<void>,
+) {
   const { Agent } = await import("@earendil-works/pi-agent-core");
   const agent = {
     listeners: new Set<Function>(),
@@ -122,10 +134,21 @@ describe("smoke: full retry lifecycle", () => {
     const { api, handlers, restore } = await setup();
     try {
       const agent = await createAgentWithMessages(
-        [{ role: "assistant", stopReason: "error", errorMessage: "Connection error", content: [] }],
+        [
+          {
+            role: "assistant",
+            stopReason: "error",
+            errorMessage: "Connection error",
+            content: [],
+          },
+        ],
         vi.fn().mockImplementation(() => {
           agent.state.messages = [
-            { role: "assistant", stopReason: "stop", content: [{ type: "text", text: "done" }] },
+            {
+              role: "assistant",
+              stopReason: "stop",
+              content: [{ type: "text", text: "done" }],
+            },
           ];
           return Promise.resolve();
         }),
@@ -136,11 +159,15 @@ describe("smoke: full retry lifecycle", () => {
         void handler({ messages: [] }, ctx);
       }
 
-      expect(api.events.emit).toHaveBeenCalledWith("pi-retry:started", { retryId: 1 });
+      expect(api.events.emit).toHaveBeenCalledWith("pi-retry:started", {
+        retryId: 1,
+      });
 
       await advance(5_000);
 
-      expect(api.events.emit).toHaveBeenCalledWith("pi-retry:completed", { retryId: 1 });
+      expect(api.events.emit).toHaveBeenCalledWith("pi-retry:completed", {
+        retryId: 1,
+      });
     } finally {
       restore();
     }
@@ -151,20 +178,36 @@ describe("smoke: full retry lifecycle", () => {
     try {
       let attempt = 0;
       const agent = await createAgentWithMessages(
-        [{ role: "assistant", stopReason: "error", errorMessage: "Connection error", content: [] }],
+        [
+          {
+            role: "assistant",
+            stopReason: "error",
+            errorMessage: "Connection error",
+            content: [],
+          },
+        ],
         vi.fn().mockImplementation(() => {
           attempt++;
           if (attempt >= 5) {
             agent.state.messages = [
-              { role: "assistant", stopReason: "stop", content: [{ type: "text", text: "done" }] },
+              {
+                role: "assistant",
+                stopReason: "stop",
+                content: [{ type: "text", text: "done" }],
+              },
             ];
           } else {
             agent.state.messages = [
-              { role: "assistant", stopReason: "error", errorMessage: "Connection error", content: [] },
+              {
+                role: "assistant",
+                stopReason: "error",
+                errorMessage: "Connection error",
+                content: [],
+              },
             ];
           }
           return Promise.resolve();
-        })
+        }),
       );
 
       const entries = [errorEntry("Connection error")];
@@ -190,14 +233,25 @@ describe("smoke: full retry lifecycle", () => {
     try {
       let attempt = 0;
       const agent = await createAgentWithMessages(
-        [{ role: "assistant", stopReason: "error", errorMessage: "Connection error", content: [] }],
+        [
+          {
+            role: "assistant",
+            stopReason: "error",
+            errorMessage: "Connection error",
+            content: [],
+          },
+        ],
         vi.fn().mockImplementation(() => {
           attempt++;
           agent.state.messages = [
-            { role: "assistant", stopReason: "stop", content: [{ type: "text", text: "done" }] },
+            {
+              role: "assistant",
+              stopReason: "stop",
+              content: [{ type: "text", text: "done" }],
+            },
           ];
           return Promise.resolve();
-        })
+        }),
       );
 
       const entries = [errorEntry("Connection error")];
@@ -221,8 +275,15 @@ describe("smoke: full retry lifecycle", () => {
     const { handlers, restore } = await setup();
     try {
       const agent = await createAgentWithMessages(
-        [{ role: "assistant", stopReason: "error", errorMessage: "Invalid API key provided", content: [] }],
-        vi.fn().mockResolvedValue(undefined)
+        [
+          {
+            role: "assistant",
+            stopReason: "error",
+            errorMessage: "Invalid API key provided",
+            content: [],
+          },
+        ],
+        vi.fn().mockResolvedValue(undefined),
       );
 
       const entries = [errorEntry("Invalid API key provided")];
@@ -246,14 +307,26 @@ describe("smoke: full retry lifecycle", () => {
     try {
       let attempt = 0;
       const agent = await createAgentWithMessages(
-        [{ role: "assistant", stopReason: "error", errorMessage: "Connection error", content: [] }],
+        [
+          {
+            role: "assistant",
+            stopReason: "error",
+            errorMessage: "Connection error",
+            content: [],
+          },
+        ],
         vi.fn().mockImplementation(() => {
           attempt++;
           agent.state.messages = [
-            { role: "assistant", stopReason: "error", errorMessage: "Connection error", content: [] },
+            {
+              role: "assistant",
+              stopReason: "error",
+              errorMessage: "Connection error",
+              content: [],
+            },
           ];
           return Promise.resolve();
-        })
+        }),
       );
 
       const entries = [errorEntry("Connection error")];
@@ -272,7 +345,10 @@ describe("smoke: full retry lifecycle", () => {
       const turnEndFns = handlers["turn_end"] ?? [];
       const abortCtx = createMockCtx([]);
       for (const fn of turnEndFns) {
-        await fn({ message: { role: "assistant", stopReason: "aborted" } }, abortCtx);
+        await fn(
+          { message: { role: "assistant", stopReason: "aborted" } },
+          abortCtx,
+        );
       }
 
       await advance(60000);
@@ -293,14 +369,26 @@ describe("litmus: bug fix verification", () => {
     try {
       let attempt = 0;
       const agent = await createAgentWithMessages(
-        [{ role: "assistant", stopReason: "error", errorMessage: "Connection error", content: [] }],
+        [
+          {
+            role: "assistant",
+            stopReason: "error",
+            errorMessage: "Connection error",
+            content: [],
+          },
+        ],
         vi.fn().mockImplementation(() => {
           attempt++;
           agent.state.messages = [
-            { role: "assistant", stopReason: "error", errorMessage: "Connection error", content: [] },
+            {
+              role: "assistant",
+              stopReason: "error",
+              errorMessage: "Connection error",
+              content: [],
+            },
           ];
           return Promise.resolve();
-        })
+        }),
       );
 
       const entries = [errorEntry("Connection error")];
@@ -354,7 +442,12 @@ describe("litmus: bug fix verification", () => {
       const agent = await createAgentWithMessages(
         [
           { role: "user", content: "hello" },
-          { role: "assistant", stopReason: "error", errorMessage: "Connection error", content: [] },
+          {
+            role: "assistant",
+            stopReason: "error",
+            errorMessage: "Connection error",
+            content: [],
+          },
         ],
         vi.fn().mockImplementation(() => {
           capturedMessages.push([...agent.state.messages]);
@@ -362,7 +455,7 @@ describe("litmus: bug fix verification", () => {
             { role: "assistant", stopReason: "stop", content: [] },
           ];
           return Promise.resolve();
-        })
+        }),
       );
 
       const entries = [errorEntry("Connection error")];
@@ -394,7 +487,14 @@ describe("litmus: bug fix verification", () => {
     try {
       let attempt = 0;
       const agent = await createAgentWithMessages(
-        [{ role: "assistant", stopReason: "error", errorMessage: "Connection error", content: [] }],
+        [
+          {
+            role: "assistant",
+            stopReason: "error",
+            errorMessage: "Connection error",
+            content: [],
+          },
+        ],
         vi.fn().mockImplementation(() => {
           attempt++;
           if (attempt >= 2) {
@@ -403,11 +503,16 @@ describe("litmus: bug fix verification", () => {
             ];
           } else {
             agent.state.messages = [
-              { role: "assistant", stopReason: "error", errorMessage: "Connection error", content: [] },
+              {
+                role: "assistant",
+                stopReason: "error",
+                errorMessage: "Connection error",
+                content: [],
+              },
             ];
           }
           return Promise.resolve();
-        })
+        }),
       );
 
       const entries = [errorEntry("Connection error")];
@@ -422,7 +527,9 @@ describe("litmus: bug fix verification", () => {
 
       expect(ctx.ui.notify).toHaveBeenCalled();
       const calls = ctx.ui.notify.mock.calls.map((c: any) => c[0]);
-      const retryCalls = calls.filter((c: string) => c.includes("Retry attempt"));
+      const retryCalls = calls.filter((c: string) =>
+        c.includes("Retry attempt"),
+      );
       expect(retryCalls.length).toBeGreaterThanOrEqual(1);
     } finally {
       restore();
@@ -435,14 +542,26 @@ describe("litmus: bug fix verification", () => {
     try {
       let promptCount = 0;
       const agent = await createAgentWithMessages(
-        [{ role: "assistant", stopReason: "error", errorMessage: "Connection error", content: [] }],
+        [
+          {
+            role: "assistant",
+            stopReason: "error",
+            errorMessage: "Connection error",
+            content: [],
+          },
+        ],
         vi.fn().mockImplementation(() => {
           promptCount++;
           agent.state.messages = [
-            { role: "assistant", stopReason: "error", errorMessage: "Connection error", content: [] },
+            {
+              role: "assistant",
+              stopReason: "error",
+              errorMessage: "Connection error",
+              content: [],
+            },
           ];
           return Promise.resolve();
-        })
+        }),
       );
 
       const entries = [errorEntry("Connection error")];
@@ -471,7 +590,14 @@ describe("smoke: built-in retry exhaustion", () => {
     try {
       let attempt = 0;
       const agent = await createAgentWithMessages(
-        [{ role: "assistant", stopReason: "error", errorMessage: "Connection error", content: [] }],
+        [
+          {
+            role: "assistant",
+            stopReason: "error",
+            errorMessage: "Connection error",
+            content: [],
+          },
+        ],
         vi.fn().mockImplementation(() => {
           attempt++;
           if (attempt >= 6) {
@@ -480,11 +606,16 @@ describe("smoke: built-in retry exhaustion", () => {
             ];
           } else {
             agent.state.messages = [
-              { role: "assistant", stopReason: "error", errorMessage: "Connection error", content: [] },
+              {
+                role: "assistant",
+                stopReason: "error",
+                errorMessage: "Connection error",
+                content: [],
+              },
             ];
           }
           return Promise.resolve();
-        })
+        }),
       );
 
       const entries = [errorEntry("Connection error")];
@@ -513,19 +644,35 @@ describe("smoke: max_tokens continuation", () => {
     const { handlers, restore } = await setup();
     try {
       const agent = await createAgentWithMessages(
-        [{ role: "assistant", stopReason: "length", content: [{ type: "text", text: "long output..." }] }],
+        [
+          {
+            role: "assistant",
+            stopReason: "length",
+            content: [{ type: "text", text: "long output..." }],
+          },
+        ],
         vi.fn().mockImplementation(() => {
           agent.state.messages = [
-            { role: "assistant", stopReason: "stop", content: [{ type: "text", text: "done" }] },
+            {
+              role: "assistant",
+              stopReason: "stop",
+              content: [{ type: "text", text: "done" }],
+            },
           ];
           return Promise.resolve();
-        })
+        }),
       );
 
-      const entries = [{
-        type: "message",
-        message: { role: "assistant", stopReason: "length", content: [{ type: "text", text: "long output..." }] },
-      }];
+      const entries = [
+        {
+          type: "message",
+          message: {
+            role: "assistant",
+            stopReason: "length",
+            content: [{ type: "text", text: "long output..." }],
+          },
+        },
+      ];
       const ctx = createMockCtx(entries);
 
       const fns = handlers["agent_end"] ?? [];
@@ -546,20 +693,45 @@ describe("smoke: max_tokens continuation", () => {
     try {
       let attempt = 0;
       const agent = await createAgentWithMessages(
-        [{ role: "assistant", stopReason: "length", content: [{ type: "text", text: "part one" }] }],
+        [
+          {
+            role: "assistant",
+            stopReason: "length",
+            content: [{ type: "text", text: "part one" }],
+          },
+        ],
         vi.fn().mockImplementation(() => {
           attempt++;
-          agent.state.messages = attempt === 1
-            ? [{ role: "assistant", stopReason: "length", content: [{ type: "text", text: "part two" }] }]
-            : [{ role: "assistant", stopReason: "stop", content: [{ type: "text", text: "done" }] }];
+          agent.state.messages =
+            attempt === 1
+              ? [
+                  {
+                    role: "assistant",
+                    stopReason: "length",
+                    content: [{ type: "text", text: "part two" }],
+                  },
+                ]
+              : [
+                  {
+                    role: "assistant",
+                    stopReason: "stop",
+                    content: [{ type: "text", text: "done" }],
+                  },
+                ];
           return Promise.resolve();
         }),
       );
 
-      const entries = [{
-        type: "message",
-        message: { role: "assistant", stopReason: "length", content: [{ type: "text", text: "part one" }] },
-      }];
+      const entries = [
+        {
+          type: "message",
+          message: {
+            role: "assistant",
+            stopReason: "length",
+            content: [{ type: "text", text: "part one" }],
+          },
+        },
+      ];
       const ctx = createMockCtx(entries);
 
       for (const fn of handlers["agent_end"] ?? []) {
@@ -572,7 +744,8 @@ describe("smoke: max_tokens continuation", () => {
       expect(api.sendMessage).toHaveBeenCalledWith(
         expect.objectContaining({
           customType: "pi-retry:continue",
-          content: "Continue exactly where you left off without repeating content.",
+          content:
+            "Continue exactly where you left off without repeating content.",
           display: false,
         }),
         { triggerTurn: true, deliverAs: "followUp" },
@@ -591,14 +764,21 @@ describe("smoke: /retry command", () => {
     try {
       let attempt = 0;
       const agent = await createAgentWithMessages(
-        [{ role: "assistant", stopReason: "error", errorMessage: "Connection error", content: [] }],
+        [
+          {
+            role: "assistant",
+            stopReason: "error",
+            errorMessage: "Connection error",
+            content: [],
+          },
+        ],
         vi.fn().mockImplementation(() => {
           attempt++;
           agent.state.messages = [
             { role: "assistant", stopReason: "stop", content: [] },
           ];
           return Promise.resolve();
-        })
+        }),
       );
 
       const retryHandler = commands["retry"]?.handler;
@@ -627,7 +807,7 @@ describe("smoke: /retry command", () => {
 
       expect(ctx.ui.notify).toHaveBeenCalledWith(
         expect.stringContaining("reset"),
-        "info"
+        "info",
       );
     } finally {
       restore();
@@ -645,7 +825,14 @@ describe("smoke: built-in retry suppression", () => {
       // synchronously (before the first await in triggerInvisibleContinue).
       let attempt = 0;
       const agent = await createAgentWithMessages(
-        [{ role: "assistant", stopReason: "error", errorMessage: "Connection error", content: [] }],
+        [
+          {
+            role: "assistant",
+            stopReason: "error",
+            errorMessage: "Connection error",
+            content: [],
+          },
+        ],
         vi.fn().mockImplementation(() => {
           attempt++;
           if (attempt >= 2) {
@@ -654,11 +841,16 @@ describe("smoke: built-in retry suppression", () => {
             ];
           } else {
             agent.state.messages = [
-              { role: "assistant", stopReason: "error", errorMessage: "Connection error", content: [] },
+              {
+                role: "assistant",
+                stopReason: "error",
+                errorMessage: "Connection error",
+                content: [],
+              },
             ];
           }
           return Promise.resolve();
-        })
+        }),
       );
 
       const entries = [errorEntry("Connection error")];
@@ -676,7 +868,9 @@ describe("smoke: built-in retry suppression", () => {
       // with "Retry failed after" — that message comes from the built-in
       // retry's auto_retry_end event, which should be suppressed.
       const notifyCalls = ctx.ui.notify.mock.calls.map((c: any) => c[0]);
-      const failureCalls = notifyCalls.filter((c: string) => c.includes("Retry failed after"));
+      const failureCalls = notifyCalls.filter((c: string) =>
+        c.includes("Retry failed after"),
+      );
       expect(failureCalls.length).toBe(0);
     } finally {
       restore();
@@ -689,7 +883,9 @@ describe("smoke: built-in retry suppression", () => {
       const { AgentSession } = await import("@earendil-works/pi-coding-agent");
 
       // Verify the monkey-patch is installed
-      expect(typeof (AgentSession.prototype as any)._prepareRetry).toBe("function");
+      expect(typeof (AgentSession.prototype as any)._prepareRetry).toBe(
+        "function",
+      );
 
       // When _continueInProgress is true, it returns false immediately
       // (We can't easily set _continueInProgress directly since it's module-scoped,
@@ -708,14 +904,26 @@ describe("smoke: interruptible abort and session change", () => {
     try {
       let promptCount = 0;
       const agent = await createAgentWithMessages(
-        [{ role: "assistant", stopReason: "error", errorMessage: "Connection error", content: [] }],
+        [
+          {
+            role: "assistant",
+            stopReason: "error",
+            errorMessage: "Connection error",
+            content: [],
+          },
+        ],
         vi.fn().mockImplementation(() => {
           promptCount++;
           agent.state.messages = [
-            { role: "assistant", stopReason: "error", errorMessage: "Connection error", content: [] },
+            {
+              role: "assistant",
+              stopReason: "error",
+              errorMessage: "Connection error",
+              content: [],
+            },
           ];
           return Promise.resolve();
-        })
+        }),
       );
 
       const entries = [errorEntry("Connection error")];
@@ -734,7 +942,10 @@ describe("smoke: interruptible abort and session change", () => {
       const turnEndFns = handlers["turn_end"] ?? [];
       const abortCtx = createMockCtx([]);
       for (const fn of turnEndFns) {
-        await fn({ message: { role: "assistant", stopReason: "aborted" } }, abortCtx);
+        await fn(
+          { message: { role: "assistant", stopReason: "aborted" } },
+          abortCtx,
+        );
       }
 
       // Only 200ms needed — interruptibleSleep polls every 100ms
@@ -752,14 +963,26 @@ describe("smoke: interruptible abort and session change", () => {
     try {
       let promptCount = 0;
       const agent = await createAgentWithMessages(
-        [{ role: "assistant", stopReason: "error", errorMessage: "Connection error", content: [] }],
+        [
+          {
+            role: "assistant",
+            stopReason: "error",
+            errorMessage: "Connection error",
+            content: [],
+          },
+        ],
         vi.fn().mockImplementation(() => {
           promptCount++;
           agent.state.messages = [
-            { role: "assistant", stopReason: "error", errorMessage: "Connection error", content: [] },
+            {
+              role: "assistant",
+              stopReason: "error",
+              errorMessage: "Connection error",
+              content: [],
+            },
           ];
           return Promise.resolve();
-        })
+        }),
       );
 
       const entries = [errorEntry("Connection error")];
@@ -795,7 +1018,14 @@ describe("smoke: interruptible abort and session change", () => {
     try {
       let promptCount = 0;
       const agent = await createAgentWithMessages(
-        [{ role: "assistant", stopReason: "error", errorMessage: "Connection error", content: [] }],
+        [
+          {
+            role: "assistant",
+            stopReason: "error",
+            errorMessage: "Connection error",
+            content: [],
+          },
+        ],
         vi.fn().mockImplementation(() => {
           promptCount++;
           if (promptCount >= 3) {
@@ -804,11 +1034,16 @@ describe("smoke: interruptible abort and session change", () => {
             ];
           } else {
             agent.state.messages = [
-              { role: "assistant", stopReason: "error", errorMessage: "Connection error", content: [] },
+              {
+                role: "assistant",
+                stopReason: "error",
+                errorMessage: "Connection error",
+                content: [],
+              },
             ];
           }
           return Promise.resolve();
-        })
+        }),
       );
 
       const entries = [errorEntry("Connection error")];

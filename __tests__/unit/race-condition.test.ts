@@ -8,7 +8,10 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import type { ExtensionAPI, ExtensionCommandContext } from "@earendil-works/pi-coding-agent";
+import type {
+  ExtensionAPI,
+  ExtensionCommandContext,
+} from "@earendil-works/pi-coding-agent";
 
 beforeEach(() => {
   vi.useFakeTimers();
@@ -58,7 +61,10 @@ function createMockAgent(overrides?: {
 
 function createMockAPI() {
   const handlers: Record<string, Function[]> = {};
-  const commands: Record<string, { handler: (args: string[], ctx: any) => Promise<void> }> = {};
+  const commands: Record<
+    string,
+    { handler: (args: string[], ctx: any) => Promise<void> }
+  > = {};
   const sendMessage = vi.fn(() => {
     for (const handler of handlers["before_agent_start"] ?? []) {
       void handler({ prompt: "" }, {});
@@ -67,11 +73,14 @@ function createMockAPI() {
   });
 
   const api = {
-      events: { emit: vi.fn(), on: vi.fn(() => () => {}) },
+    events: { emit: vi.fn(), on: vi.fn(() => () => {}) },
     on(event: string, handler: Function) {
       (handlers[event] ??= []).push(handler);
     },
-    registerCommand(name: string, opts: { handler: (args: string[], ctx: any) => Promise<void> }) {
+    registerCommand(
+      name: string,
+      opts: { handler: (args: string[], ctx: any) => Promise<void> },
+    ) {
       commands[name] = opts;
     },
     sendMessage,
@@ -147,7 +156,12 @@ describe("triggerInvisibleContinue retry loop", () => {
   it("mutex: concurrent agent_end events request one hidden turn", async () => {
     const { handlers, agent, sendMessage, restore } = await setup({
       messages: [
-        { role: "assistant", stopReason: "error", errorMessage: "Connection error", content: [] },
+        {
+          role: "assistant",
+          stopReason: "error",
+          errorMessage: "Connection error",
+          content: [],
+        },
       ],
     });
     try {
@@ -187,9 +201,11 @@ describe("triggerInvisibleContinue retry loop", () => {
 
   it("transport safely contains a rejected fake run", async () => {
     const { handlers, agent, restore } = await setup({
-      prompt: vi.fn().mockImplementation(() =>
-        Promise.reject(new Error("Agent is already processing a prompt")),
-      ),
+      prompt: vi
+        .fn()
+        .mockImplementation(() =>
+          Promise.reject(new Error("Agent is already processing a prompt")),
+        ),
     });
     try {
       const entries = [errorEntry("Connection error")];
@@ -211,7 +227,9 @@ describe("triggerInvisibleContinue retry loop", () => {
       prompt: vi.fn().mockImplementation(() => {
         promptCallCount++;
         if (promptCallCount > 1) {
-          return Promise.reject(new Error("Agent is already processing a prompt"));
+          return Promise.reject(
+            new Error("Agent is already processing a prompt"),
+          );
         }
         return Promise.resolve();
       }),
@@ -250,9 +268,11 @@ describe("triggerInvisibleContinue retry loop", () => {
 
   it("/retry command also benefits from the guards", async () => {
     const { commands, agent, restore } = await setup({
-      prompt: vi.fn().mockImplementation(() =>
-        Promise.reject(new Error("Agent is already processing a prompt")),
-      ),
+      prompt: vi
+        .fn()
+        .mockImplementation(() =>
+          Promise.reject(new Error("Agent is already processing a prompt")),
+        ),
     });
     try {
       const retryHandler = commands["retry"]?.handler;
@@ -275,7 +295,12 @@ describe("triggerInvisibleContinue retry loop", () => {
       prompt: vi.fn().mockImplementation(() => {
         promptCount++;
         agent.state.messages = [
-          { role: "assistant", stopReason: "error", errorMessage: "Connection error", content: [] },
+          {
+            role: "assistant",
+            stopReason: "error",
+            errorMessage: "Connection error",
+            content: [],
+          },
         ];
         return Promise.resolve();
       }),
@@ -315,7 +340,12 @@ describe("infinite retry loop", () => {
       prompt: vi.fn().mockImplementation(() => {
         promptCount++;
         agent.state.messages = [
-          { role: "assistant", stopReason: "error", errorMessage: "Connection error", content: [] },
+          {
+            role: "assistant",
+            stopReason: "error",
+            errorMessage: "Connection error",
+            content: [],
+          },
         ];
         return Promise.resolve();
       }),
@@ -345,7 +375,12 @@ describe("infinite retry loop", () => {
           ];
         } else {
           agent.state.messages = [
-            { role: "assistant", stopReason: "error", errorMessage: "Connection error", content: [] },
+            {
+              role: "assistant",
+              stopReason: "error",
+              errorMessage: "Connection error",
+              content: [],
+            },
           ];
         }
         return Promise.resolve();
@@ -371,7 +406,12 @@ describe("infinite retry loop", () => {
       prompt: vi.fn().mockImplementation(() => {
         promptCount++;
         agent.state.messages = [
-          { role: "assistant", stopReason: "error", errorMessage: "Connection error", content: [] },
+          {
+            role: "assistant",
+            stopReason: "error",
+            errorMessage: "Connection error",
+            content: [],
+          },
         ];
         return Promise.resolve();
       }),
@@ -387,7 +427,10 @@ describe("infinite retry loop", () => {
       const turnEndHandlers = handlers["turn_end"] ?? [];
       const ctx = createMockCtx([]);
       for (const fn of turnEndHandlers) {
-        await fn({ message: { role: "assistant", stopReason: "aborted" } }, ctx);
+        await fn(
+          { message: { role: "assistant", stopReason: "aborted" } },
+          ctx,
+        );
       }
 
       const countBefore = promptCount;
@@ -407,7 +450,9 @@ describe("context overflow defers to compaction", () => {
   it("does not request a hidden turn for an overflow error", async () => {
     const { handlers, agent, restore } = await setup();
     try {
-      const entries = [errorEntry("prompt is too long: 213462 tokens > 200000 maximum")];
+      const entries = [
+        errorEntry("prompt is too long: 213462 tokens > 200000 maximum"),
+      ];
       fireAgentEndAsync(handlers, entries);
 
       // Far beyond any backoff — a retry request would have fired by now.
@@ -422,7 +467,9 @@ describe("context overflow defers to compaction", () => {
   it("notifies that it is deferring to compaction", async () => {
     const { handlers, restore } = await setup();
     try {
-      const entries = [errorEntry("Your input exceeds the context window of this model")];
+      const entries = [
+        errorEntry("Your input exceeds the context window of this model"),
+      ];
       const ctx = createMockCtx(entries);
       const fns = handlers["agent_end"] ?? [];
       for (const fn of fns) {
@@ -450,7 +497,9 @@ describe("context overflow defers to compaction", () => {
     });
     try {
       // First: overflow → defer (no prompt, mutex not held)
-      fireAgentEndAsync(handlers, [errorEntry("prompt is too long: 213462 > 200000")]);
+      fireAgentEndAsync(handlers, [
+        errorEntry("prompt is too long: 213462 > 200000"),
+      ]);
       await advanceThroughRetry(3000);
       expect(agent.prompt).not.toHaveBeenCalled();
 
@@ -512,7 +561,12 @@ describe("error message removal from agent state", () => {
     try {
       agent.state.messages = [
         { role: "user", content: "hello" },
-        { role: "assistant", stopReason: "error", errorMessage: "Connection error", content: [] },
+        {
+          role: "assistant",
+          stopReason: "error",
+          errorMessage: "Connection error",
+          content: [],
+        },
       ];
 
       const entries = [errorEntry("Connection error")];
@@ -557,7 +611,9 @@ describe("error message removal from agent state", () => {
 
       if (promptCalls.length > 0) {
         const messagesAtPromptTime = promptCalls[0];
-        const assistants = messagesAtPromptTime.filter((m: any) => m.role === "assistant");
+        const assistants = messagesAtPromptTime.filter(
+          (m: any) => m.role === "assistant",
+        );
         expect(assistants.some((m: any) => m.stopReason === "stop")).toBe(true);
       }
     } finally {
@@ -580,7 +636,12 @@ describe("built-in retry coordination", () => {
           ];
         } else {
           agent.state.messages = [
-            { role: "assistant", stopReason: "error", errorMessage: "Connection error", content: [] },
+            {
+              role: "assistant",
+              stopReason: "error",
+              errorMessage: "Connection error",
+              content: [],
+            },
           ];
         }
         return Promise.resolve();
@@ -614,7 +675,12 @@ describe("retry notifications", () => {
           ];
         } else {
           agent.state.messages = [
-            { role: "assistant", stopReason: "error", errorMessage: "Connection error", content: [] },
+            {
+              role: "assistant",
+              stopReason: "error",
+              errorMessage: "Connection error",
+              content: [],
+            },
           ];
         }
         return Promise.resolve();
@@ -634,7 +700,9 @@ describe("retry notifications", () => {
 
       expect(ctx.ui.notify).toHaveBeenCalled();
       const calls = ctx.ui.notify.mock.calls.map((c: any) => c[0]);
-      const retryCalls = calls.filter((c: string) => c.includes("Retry attempt"));
+      const retryCalls = calls.filter((c: string) =>
+        c.includes("Retry attempt"),
+      );
       expect(retryCalls.length).toBeGreaterThanOrEqual(1);
     } finally {
       restore();
@@ -651,7 +719,12 @@ describe("RetryState tracking in retry loop", () => {
       prompt: vi.fn().mockImplementation(() => {
         promptCount++;
         agent.state.messages = [
-          { role: "assistant", stopReason: "error", errorMessage: "Connection error", content: [] },
+          {
+            role: "assistant",
+            stopReason: "error",
+            errorMessage: "Connection error",
+            content: [],
+          },
         ];
         return Promise.resolve();
       }),
@@ -680,7 +753,10 @@ describe("real prompt startup wins over retry backoff", () => {
       await advanceThroughRetry(500);
 
       for (const handler of handlers.input ?? []) {
-        await handler({ source: "interactive", text: "user work" }, createMockCtx());
+        await handler(
+          { source: "interactive", text: "user work" },
+          createMockCtx(),
+        );
       }
       await advanceThroughRetry(5000);
 
@@ -698,7 +774,12 @@ describe("interruptible abort and session change", () => {
       prompt: vi.fn().mockImplementation(() => {
         promptCount++;
         agent.state.messages = [
-          { role: "assistant", stopReason: "error", errorMessage: "Connection error", content: [] },
+          {
+            role: "assistant",
+            stopReason: "error",
+            errorMessage: "Connection error",
+            content: [],
+          },
         ];
         return Promise.resolve();
       }),
@@ -715,7 +796,10 @@ describe("interruptible abort and session change", () => {
       const turnEndHandlers = handlers["turn_end"] ?? [];
       const ctx = createMockCtx([]);
       for (const fn of turnEndHandlers) {
-        await fn({ message: { role: "assistant", stopReason: "aborted" } }, ctx);
+        await fn(
+          { message: { role: "assistant", stopReason: "aborted" } },
+          ctx,
+        );
       }
 
       // Only 200ms should be needed for the interruptible sleep to detect the abort
@@ -735,7 +819,9 @@ describe("interruptible abort and session change", () => {
     const { handlers, agent, restore } = await setup({
       prompt: vi.fn().mockImplementation(() => {
         promptCount++;
-        return new Promise<void>((resolve) => { resolvePrompt = resolve; });
+        return new Promise<void>((resolve) => {
+          resolvePrompt = resolve;
+        });
       }),
     });
     try {
@@ -750,12 +836,20 @@ describe("interruptible abort and session change", () => {
       const turnEndHandlers = handlers["turn_end"] ?? [];
       const ctx = createMockCtx([]);
       for (const fn of turnEndHandlers) {
-        await fn({ message: { role: "assistant", stopReason: "aborted" } }, ctx);
+        await fn(
+          { message: { role: "assistant", stopReason: "aborted" } },
+          ctx,
+        );
       }
 
       // Now resolve the prompt (simulating the prompt returning after abort)
       agent.state.messages = [
-        { role: "assistant", stopReason: "error", errorMessage: "Connection error", content: [] },
+        {
+          role: "assistant",
+          stopReason: "error",
+          errorMessage: "Connection error",
+          content: [],
+        },
       ];
       resolvePrompt();
       await advanceThroughRetry(5000);
@@ -773,7 +867,12 @@ describe("interruptible abort and session change", () => {
       prompt: vi.fn().mockImplementation(() => {
         promptCount++;
         agent.state.messages = [
-          { role: "assistant", stopReason: "error", errorMessage: "Connection error", content: [] },
+          {
+            role: "assistant",
+            stopReason: "error",
+            errorMessage: "Connection error",
+            content: [],
+          },
         ];
         return Promise.resolve();
       }),
@@ -810,7 +909,12 @@ describe("interruptible abort and session change", () => {
       prompt: vi.fn().mockImplementation(() => {
         promptCount++;
         agent.state.messages = [
-          { role: "assistant", stopReason: "error", errorMessage: "Connection error", content: [] },
+          {
+            role: "assistant",
+            stopReason: "error",
+            errorMessage: "Connection error",
+            content: [],
+          },
         ];
         return Promise.resolve();
       }),
@@ -845,7 +949,12 @@ describe("interruptible abort and session change", () => {
       prompt: vi.fn().mockImplementation(() => {
         promptCount++;
         agent.state.messages = [
-          { role: "assistant", stopReason: "error", errorMessage: "Connection error", content: [] },
+          {
+            role: "assistant",
+            stopReason: "error",
+            errorMessage: "Connection error",
+            content: [],
+          },
         ];
         return Promise.resolve();
       }),
