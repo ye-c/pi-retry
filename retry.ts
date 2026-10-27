@@ -583,6 +583,19 @@ export default function (pi: ExtensionAPI) {
     }
   });
 
+  // Lifecycle events are best-effort side-channel signals for other
+  // extensions. The captured `pi` handle is invalidated when the session is
+  // reloaded or replaced, and the retry loop outlives those moments, so an
+  // emit from here can throw a stale-ctx error. Never let that kill the
+  // process — the loop's own state cleanup must still run.
+  function _safeEmit(event: string, payload: { retryId: number }) {
+    try {
+      pi.events.emit(event, payload);
+    } catch {
+      // Extension invalidated; nobody is listening anymore.
+    }
+  }
+
   // Retry loop driver — the core of pi-retry.
   //
   // Unlike the original one-shot design, this function loops. After each
@@ -610,7 +623,7 @@ export default function (pi: ExtensionAPI) {
     _continueInProgress = true;
     const retryLifecycleId = ++_retryLifecycleId;
     let didRetryComplete = false;
-    pi.events.emit(RETRY_STARTED_EVENT, { retryId: retryLifecycleId });
+    _safeEmit(RETRY_STARTED_EVENT, { retryId: retryLifecycleId });
 
     // Capture the current session generation. If /new fires while we're
     // looping, _sessionGeneration will increment and the loop will exit.
@@ -747,11 +760,9 @@ export default function (pi: ExtensionAPI) {
     } finally {
       // Release the mutex only if this loop still owns it.
       if (_continueGeneration === myGeneration) {
-        pi.events.emit(
+        _safeEmit(
           didRetryComplete ? RETRY_COMPLETED_EVENT : RETRY_CANCELLED_EVENT,
-          {
-            retryId: retryLifecycleId,
-          },
+          { retryId: retryLifecycleId },
         );
         _continueInProgress = false;
         _continueGeneration = null;

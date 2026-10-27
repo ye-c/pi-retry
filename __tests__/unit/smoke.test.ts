@@ -173,6 +173,80 @@ describe("smoke: full retry lifecycle", () => {
     }
   });
 
+  it("stale extension ctx: throwing event bus does not break the loop", async () => {
+    const { api, handlers, restore } = await setup();
+    try {
+      let attempt = 0;
+      const agent = await createAgentWithMessages(
+        [
+          {
+            role: "assistant",
+            stopReason: "error",
+            errorMessage: "Connection error",
+            content: [],
+          },
+        ],
+        vi.fn().mockImplementation(() => {
+          attempt++;
+          agent.state.messages = [
+            {
+              role: "assistant",
+              stopReason: "stop",
+              content: [{ type: "text", text: "done" }],
+            },
+          ];
+          return Promise.resolve();
+        }),
+      );
+
+      // Simulate a session reload while the loop was sleeping: the captured
+      // extension API handle is stale, so every lifecycle emit throws.
+      (api.events.emit as any).mockImplementation(() => {
+        throw new Error(
+          "This extension ctx is stale after session replacement or reload.",
+        );
+      });
+
+      const ctx = createMockCtx([errorEntry("Connection error")]);
+      for (const fn of handlers["agent_end"] ?? []) {
+        void fn({ messages: [] }, ctx);
+      }
+
+      await advance(5_000);
+
+      // The loop ran to completion despite the throwing bus...
+      expect(attempt).toBe(1);
+      expect(api.events.emit).toHaveBeenCalledWith("pi-retry:started", {
+        retryId: 1,
+      });
+      expect(api.events.emit).toHaveBeenCalledWith("pi-retry:completed", {
+        retryId: 1,
+      });
+
+      // ...and released its mutex, so a later error still retries.
+      agent.state.messages = [
+        {
+          role: "assistant",
+          stopReason: "error",
+          errorMessage: "Connection error",
+          content: [],
+        },
+      ];
+      for (const fn of handlers["agent_end"] ?? []) {
+        void fn({ messages: [] }, ctx);
+      }
+
+      await advance(5_000);
+
+      expect(attempt).toBe(2);
+      expect(api.events.emit).toHaveBeenCalledWith("pi-retry:started", {
+        retryId: 2,
+      });
+    } finally {
+      restore();
+    }
+  });
+
   it("connection error → 5 retries → success", async () => {
     const { handlers, restore } = await setup();
     try {
