@@ -949,6 +949,58 @@ describe("quota patterns do not false-positive on transient/balance errors", () 
     expect(hasRetryableError(msg4)).toBe(true);
   });
 
+  it("Google Cloud Code Assist transient rate limits stay retryable", () => {
+    // Google Cloud Code Assist uses "You have exhausted your capacity on this model.
+    // Your quota will reset after 0s." with reason "RATE_LIMIT_EXCEEDED" for transient
+    // concurrency/RPM throttles. These must stay retryable, not misclassified as hard caps.
+    const fullError = createAssistantError(`Error: Cloud Code Assist request failed (429): {
+   "error": {
+     "code": 429,
+     "message": "You have exhausted your capacity on this model. Your quota will reset after 0s.",
+     "status": "RESOURCE_EXHAUSTED",
+     "details": [
+       {
+         "@type": "type.googleapis.com/google.rpc.ErrorInfo",
+         "reason": "RATE_LIMIT_EXCEEDED",
+         "domain": "cloudcode-pa.googleapis.com",
+         "metadata": {
+           "quotaResetDelay": "646.531µs",
+           "quotaResetTimeStamp": "2026-11-23T14:07:38Z",
+           "uiMessage": "true",
+           "model": "gemini-3.8-flash"
+         }
+       },
+       {
+         "@type": "type.googleapis.com/google.rpc.RetryInfo",
+         "retryDelay": "0.000646531s"
+       }
+     ]
+   }
+ }`);
+    expect(hasQuotaExhaustedError(fullError)).toBe(false);
+    expect(isNonRetryableError(fullError)).toBe(false);
+    expect(hasRetryableError(fullError)).toBe(true);
+
+    const plain0s = createAssistantError(
+      "You have exhausted your capacity on this model. Your quota will reset after 0s.",
+    );
+    expect(hasQuotaExhaustedError(plain0s)).toBe(false);
+    expect(isNonRetryableError(plain0s)).toBe(false);
+    expect(hasRetryableError(plain0s)).toBe(true);
+
+    const plainSeconds = createAssistantError(
+      "You have exhausted your capacity on this model. Your quota will reset after 5s.",
+    );
+    expect(hasQuotaExhaustedError(plainSeconds)).toBe(false);
+    expect(hasRetryableError(plainSeconds)).toBe(true);
+
+    const quotaResetAfter0s = createAssistantError(
+      "Your quota will reset after 0s.",
+    );
+    expect(hasQuotaExhaustedError(quotaResetAfter0s)).toBe(false);
+    expect(hasRetryableError(quotaResetAfter0s)).toBe(true);
+  });
+
   it("pay-as-you-go balance errors stay retryable (top-up auto-resume)", () => {
     const msg1 = createAssistantError("Insufficient Balance"); // DeepSeek 402
     const msg2 = createAssistantError(

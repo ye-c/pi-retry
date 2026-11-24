@@ -219,8 +219,12 @@ export const QUOTA_EXHAUSTED_PATTERNS = [
  /over\s*budget/i, // "… over budget. Spend=…, Budget=…"
  /budget[\s_]exceeded/i, // "… type=budget_exceeded" (underscore variant)
  // Google subscription caps (Gemini Code Assist, Antigravity)
- /exhausted your capacity/i, // "You have exhausted your capacity on this model."
- /quota will reset after/i, // "Your quota will reset after 8h44m7s."
+ // Negative lookahead: Google Cloud Code Assist returns "You have exhausted your capacity
+ // on this model. Your quota will reset after 0s." with reason "RATE_LIMIT_EXCEEDED"
+ // (and short second-level reset delays) for transient concurrency / RPM throttles.
+ // Exclude these so they remain retryable and are not misclassified as hard quota caps.
+ /^(?![\s\S]*(?:RATE_LIMIT_EXCEEDED|reset(?:s)?\s+after\s+\d+(?:\.\d+)?s\b))[\s\S]*?exhausted your capacity/i,
+ /^(?![\s\S]*(?:RATE_LIMIT_EXCEEDED|reset(?:s)?\s+after\s+\d+(?:\.\d+)?s\b))[\s\S]*?quota will reset after/i,
  /reached the quota limit/i, // Antigravity "You have reached the quota limit for Gemini 3 Pro (High)"
  /you can resume using this model/i, // Antigravity resume tail when the lead-in is truncated
  // z.ai / GLM Coding Plan window exhaustion (429 code 1113)
